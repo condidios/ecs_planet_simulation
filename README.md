@@ -1,4 +1,4 @@
-# ecs_planet_simulation
+# Planet Simulation
 A planet simulation with random generated satellites made using Unity ECS and Job system for performance enhancements.
 
 
@@ -20,7 +20,9 @@ Specs:
 
 
 AMD Ryzen 7 7700X 8-Core 4.5GHz
+
 32 GB 6000Mhz Ram
+
 NVIDIA GeForce RTX 4070 Ti
 
 
