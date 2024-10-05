@@ -35,14 +35,20 @@ namespace PlanetSimulator
         private float3 GetRandomPosition()
         {
             float3 randomPosition;
-            float maxRadius = math.length(HalfDimensions); 
-            float minRadius = 5f; 
+            float maxRadius = math.length(HalfDimensions);
+            float minRadius = 5f;
 
+            // Randomly select a radius
             float radius = _spaceRandom.ValueRW.Value.NextFloat(minRadius, maxRadius);
 
-            float theta = _spaceRandom.ValueRW.Value.NextFloat() * math.PI * 2; 
-            float phi = _spaceRandom.ValueRW.Value.NextFloat() * math.PI; 
+            // Generate random theta from 0 to 2π
+            float theta = _spaceRandom.ValueRW.Value.NextFloat() * math.PI * 2;
 
+            // Generate random phi using a different method to prevent clustering
+            float u = _spaceRandom.ValueRW.Value.NextFloat(); // Uniformly distributed
+            float phi = math.acos(1 - 2 * u); // Resulting phi from 0 to π
+
+            // Calculate Cartesian coordinates
             float x = radius * math.sin(phi) * math.cos(theta);
             float y = radius * math.sin(phi) * math.sin(theta);
             float z = radius * math.cos(phi);

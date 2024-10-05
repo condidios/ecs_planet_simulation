@@ -42,22 +42,12 @@ namespace Systems
                 masses[index] = satellite.mass; 
                 index++;
             }
-
-            var targetJob = new CalculateTargetPositionsJob
+            var moveJob = new MoveSatellitesJob
             {
-                Positions = positions,
-                TargetPositions = targetPositions,
                 PlanetPosition = planetPosition,
                 PlanetMass = planetMass,
                 GravitationalConstant = GravitationalConstant,
-                SatelliteMasses = masses
-            };
-
-            var targetJobHandle = targetJob.Schedule(satelliteCount, 64, state.Dependency);
-            targetJobHandle.Complete();
-            
-            var moveJob = new MoveSatellitesJob
-            {
+                SatelliteMasses = masses,
                 Positions = positions,
                 TargetPositions = targetPositions,
                 DeltaTime = SystemAPI.Time.DeltaTime,
@@ -65,7 +55,7 @@ namespace Systems
                 StoppingDistance = 0.1f
             };
 
-            var moveJobHandle = moveJob.Schedule(satelliteCount, 64, targetJobHandle);
+            var moveJobHandle = moveJob.Schedule(satelliteCount, 64, state.Dependency);
             moveJobHandle.Complete();
             
             index = 0;
@@ -81,16 +71,20 @@ namespace Systems
             masses.Dispose();
         }
     }
+    
 
     [BurstCompile]
-    public struct CalculateTargetPositionsJob : IJobParallelFor
+    public struct MoveSatellitesJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<float3> Positions;
+        public NativeArray<float3> Positions;
         public NativeArray<float3> TargetPositions;
+        public float DeltaTime;
+        public float ConstantVelocity;
+        public float StoppingDistance;
+        [ReadOnly] public NativeArray<float> SatelliteMasses;
         public float3 PlanetPosition;
         public float PlanetMass;
         public float GravitationalConstant;
-        [ReadOnly] public NativeArray<float> SatelliteMasses;
 
         public void Execute(int index)
         {
@@ -101,20 +95,6 @@ namespace Systems
             float3 directionToPlanet = math.normalize(Positions[index] - PlanetPosition);
 
             TargetPositions[index] = PlanetPosition + directionToPlanet * desiredOrbitRadius;
-        }
-    }
-
-    [BurstCompile]
-    public struct MoveSatellitesJob : IJobParallelFor
-    {
-        public NativeArray<float3> Positions;
-        [ReadOnly] public NativeArray<float3> TargetPositions;
-        public float DeltaTime;
-        public float ConstantVelocity;
-        public float StoppingDistance;
-
-        public void Execute(int index)
-        {
             float3 direction = TargetPositions[index] - Positions[index];
             float distanceToTarget = math.length(direction);
         

@@ -17,7 +17,6 @@ namespace Systems
             foreach (var (satellite, localTransform) in SystemAPI.Query<SatelliteProperties, RefRW<LocalTransform>>())
             {
                 localTransform.ValueRW.Position = satellite.position;
-                
                 localTransform.ValueRW.Rotation = quaternion.identity; 
                 localTransform.ValueRW.Scale = 1f; 
             }
