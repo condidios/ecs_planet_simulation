@@ -2,23 +2,22 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
+using Unity.Transforms;
 
 namespace Systems
 {
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    public partial struct GravitationalForceSystem : ISystem
+    public partial struct GravitationalForceAndTransformSystem : ISystem
     {
+        private const float GravitationalConstant = 6.67430e-11f;
+        private const float ConstantVelocity = 10f;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<PlanetProperties>();
         }
-
-        private const float GravitationalConstant = 6.67430e-11f; 
-        private const float ConstantVelocity = 10f; 
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -28,86 +27,59 @@ namespace Systems
             var planetPosition = planet.position;
             var planetMass = planet.mass;
 
-            var satelliteQuery = SystemAPI.QueryBuilder().WithAll<SatelliteProperties>().Build();
-            var satelliteCount = satelliteQuery.CalculateEntityCount();
+            float deltaTime = SystemAPI.Time.DeltaTime;
 
-            var positions = new NativeArray<float3>(satelliteCount, Allocator.TempJob);
-            var targetPositions = new NativeArray<float3>(satelliteCount, Allocator.TempJob);
-            var masses = new NativeArray<float>(satelliteCount, Allocator.TempJob);
-
-            int index = 0;
-            foreach (var satellite in SystemAPI.Query<SatelliteProperties>())
-            {
-                positions[index] = satellite.position;
-                masses[index] = satellite.mass; 
-                index++;
-            }
-            var moveJob = new MoveSatellitesJob
+            var moveJob = new MoveSatellitesAndUpdateTransformJob
             {
                 PlanetPosition = planetPosition,
                 PlanetMass = planetMass,
                 GravitationalConstant = GravitationalConstant,
-                SatelliteMasses = masses,
-                Positions = positions,
-                TargetPositions = targetPositions,
-                DeltaTime = SystemAPI.Time.DeltaTime,
+                DeltaTime = deltaTime,
                 ConstantVelocity = ConstantVelocity,
                 StoppingDistance = 0.1f
             };
 
-            var moveJobHandle = moveJob.Schedule(satelliteCount, 64, state.Dependency);
-            moveJobHandle.Complete();
-            
-            index = 0;
-            foreach (var (satellite, entity) in SystemAPI.Query<SatelliteProperties>().WithEntityAccess())
-            {
-                var satelliteRef = SystemAPI.GetComponentRW<SatelliteProperties>(entity);
-                satelliteRef.ValueRW.position = positions[index]; 
-                index++;
-            }
-
-            positions.Dispose();
-            targetPositions.Dispose();
-            masses.Dispose();
+            var moveJobHandle = moveJob.ScheduleParallel(state.Dependency);
+            state.Dependency = moveJobHandle;
         }
-    }
-    
 
-    [BurstCompile]
-    public struct MoveSatellitesJob : IJobParallelFor
-    {
-        public NativeArray<float3> Positions;
-        public NativeArray<float3> TargetPositions;
-        public float DeltaTime;
-        public float ConstantVelocity;
-        public float StoppingDistance;
-        [ReadOnly] public NativeArray<float> SatelliteMasses;
-        public float3 PlanetPosition;
-        public float PlanetMass;
-        public float GravitationalConstant;
-
-        public void Execute(int index)
+        [BurstCompile]
+        public partial struct MoveSatellitesAndUpdateTransformJob : IJobEntity
         {
-            float satelliteMass = SatelliteMasses[index];
+            public float3 PlanetPosition;
+            public float PlanetMass;
+            public float GravitationalConstant;
+            public float DeltaTime;
+            public float ConstantVelocity;
+            public float StoppingDistance;
 
-            float desiredOrbitRadius = math.sqrt((GravitationalConstant * PlanetMass) / satelliteMass);
-
-            float3 directionToPlanet = math.normalize(Positions[index] - PlanetPosition);
-
-            TargetPositions[index] = PlanetPosition + directionToPlanet * desiredOrbitRadius;
-            float3 direction = TargetPositions[index] - Positions[index];
-            float distanceToTarget = math.length(direction);
-        
-            if (distanceToTarget < StoppingDistance)
+            public void Execute(ref SatelliteProperties satellite, ref LocalTransform transform)
             {
-                Positions[index] = TargetPositions[index];
-            }
-            else
-            {
-                direction = math.normalize(direction);
-                Positions[index] += direction * ConstantVelocity * DeltaTime;
+                float satelliteMass = satellite.mass;
+
+                // Calculate desired orbit radius based on satellite mass and gravitational force
+                float desiredOrbitRadius = math.sqrt((GravitationalConstant * PlanetMass) / satelliteMass);
+
+                float3 directionToPlanet = math.normalize(satellite.position - PlanetPosition);
+
+                float3 targetPosition = PlanetPosition + directionToPlanet * desiredOrbitRadius;
+                float3 direction = targetPosition - satellite.position;
+                float distanceToTarget = math.length(direction);
+
+                if (distanceToTarget < StoppingDistance)
+                {
+                    satellite.position = targetPosition;
+                }
+                else
+                {
+                    direction = math.normalize(direction);
+                    satellite.position += direction * ConstantVelocity * DeltaTime;
+                }
+
+                transform.Position = satellite.position;
+                transform.Rotation = quaternion.identity;
+                transform.Scale = 1f;
             }
         }
     }
-
 }

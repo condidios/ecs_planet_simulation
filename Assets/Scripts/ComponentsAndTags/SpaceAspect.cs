@@ -29,7 +29,7 @@ namespace PlanetSimulator
         public float GetRandomMass()
         {
             
-            return _spaceRandom.ValueRW.Value.NextFloat(5.0e19f, 5.0e22f);
+            return _spaceRandom.ValueRW.Value.NextFloat(5.0e18f, 5.0e21f);
         }
 
         private float3 GetRandomPosition()
