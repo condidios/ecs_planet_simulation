@@ -16,6 +16,13 @@ After that each satellite will move to its target location to stay on the orbit 
 
 The main goal of this project is to maximize performance using Job System and DOTS ECS of Unity on large count of objects.
 
+
+By using the job system for entities combined with gpu instancing of the satellite prefab material, I can get low batch count and have a very optimized multithread structure.
+
+
+I also tried caching the main camera for performance but that doesn't seem to be very effective.
+
+
 Specs:
 
 
@@ -30,9 +37,10 @@ How To Use:
 
 
 You can set the dimensions and the number of satellites in the space object.
-(A dimension of 200x200x200 seems to be the most optimal dimension from my tests.)
+(A dimension of 500x500x500 seems to be the most optimal dimension from my tests.)
 
-Currently I can get 32 stable FPS in my simulation with 500.000 satellites each moving to its target position.
+Currently I can get 73 stable FPS in my simulation with 500.000 satellites each moving to its target position.
 
-![image](https://github.com/user-attachments/assets/3e80ba35-2d0f-4457-86b2-9c142b25ab43)
+![image](https://github.com/user-attachments/assets/17a386d8-b134-4cff-a0dd-a1c3df17a91a)
+
 
